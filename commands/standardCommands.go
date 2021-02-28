@@ -4,7 +4,8 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	logger "github.com/jordanjohnston/harunago/util"
+	messaging "github.com/jordanjohnston/ayamego/messaging"
+	logger "github.com/jordanjohnston/ayamego/util/logger"
 )
 
 const commandPrefix string = "ayame, "
@@ -20,17 +21,18 @@ func OnMessageCreate(session *discordgo.Session, message *discordgo.MessageCreat
 
 	response = specificMessageHandler(message.Content)
 	if response != "" {
-		sendMessage(session, channelID, response)
+		logger.Message(message.Author, ": ", message.Content)
+		messaging.SendMessage(session, channelID, response)
 		return
 	}
 
 	if strings.HasPrefix(message.Content, commandPrefix) {
-		logger.Message(message)
+		logger.Message(message.Author, ": ", message.Content)
 		response = basicCommandHandler(session, message)
 	}
 
 	if response != "" {
-		sendMessage(session, channelID, response)
+		messaging.SendMessage(session, channelID, response)
 	}
 }
 
@@ -49,12 +51,9 @@ func specificMessageHandler(content string) string {
 	return response
 }
 
-func sendMessage(session *discordgo.Session, channelID string, message string) {
-	msg, err := session.ChannelMessageSend(channelID, message)
-	handleGenericError(err)
-	logger.Message(msg.Content)
-}
-
+/*
+	Todo: need to figure out a more elegant solution for this
+*/
 func basicCommandHandler(session *discordgo.Session, message *discordgo.MessageCreate) string {
 	msgContent := message.Content[len(commandPrefix):]
 	response := ""

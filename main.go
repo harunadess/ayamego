@@ -8,8 +8,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/jordanjohnston/harunago/discord"
-	logger "github.com/jordanjohnston/harunago/util"
+	discordactions "github.com/jordanjohnston/ayamego/discord/discordactions"
+	discordinit "github.com/jordanjohnston/ayamego/discord/discordinit"
+	"github.com/jordanjohnston/ayamego/messaging"
+	errors "github.com/jordanjohnston/ayamego/util/errors"
+	logger "github.com/jordanjohnston/ayamego/util/logger"
 )
 
 var ayameSecrets map[string]interface{}
@@ -25,17 +28,10 @@ func parseArgs() *string {
 	flag.Parse()
 
 	if *fPath == "" {
-		handleGenericError(fmt.Errorf("%v", "no -config specified"))
+		errors.FatalErrorHandler("parseArgs: ", fmt.Errorf("%v", "no -config specified"))
 	}
 
 	return fPath
-}
-
-func handleGenericError(err error) {
-	if err != nil {
-		logger.Error(err)
-		os.Exit(1)
-	}
 }
 
 // readConfig reads the json file from the -config command line
@@ -44,14 +40,14 @@ func readConfig(fPath *string) {
 	const maxJSONBytes int = 256
 
 	file, err := os.Open(*fPath)
-	handleGenericError(err)
+	errors.FatalErrorHandler("readConfig: ", err)
 
 	data := make([]byte, maxJSONBytes)
 	count, err := file.Read(data)
-	handleGenericError(err)
+	errors.FatalErrorHandler("readConfig: ", err)
 
 	err = json.Unmarshal(data[:count], &ayameSecrets)
-	handleGenericError(err)
+	errors.FatalErrorHandler("readConfig: ", err)
 
 	file.Close()
 }
@@ -60,16 +56,13 @@ func readConfig(fPath *string) {
 // i.e. move discord specific stuff into it's own file
 // move handlers into specific packages too
 func main() {
-	ayame := discord.SetupBot(ayameSecrets["token"].(string))
+	ayame := discordinit.SetupBot(ayameSecrets["token"].(string))
 	logger.Info("konnakiri!")
 
-	msg, _ := ayame.ChannelMessageSend(ayameSecrets["generalID"].(string), "yo dayo!!")
-	logger.Message(msg.Content)
+	messaging.SendMessage(ayame, ayameSecrets["generalID"].(string), "yo dayo!!")
 
-	err := discord.SetActivity(ayame, "playing", "Apex probably")
-	if err != nil {
-		logger.Error(err)
-	}
+	err := discordactions.SetActivity(ayame, "playing", "Apex, probably..")
+	errors.StandardErrorHandler("SetActvitiy: ", err)
 
 	// wait here for ctrl+c or other signal end term
 	sc := make(chan os.Signal, 1)
