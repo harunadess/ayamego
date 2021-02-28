@@ -22,7 +22,6 @@ func init() {
 	readConfig(fPath)
 }
 
-// parseArgs reads the command line flags specified
 func parseArgs() *string {
 	fPath := flag.String("config", "", "path to config .json file")
 	flag.Parse()
@@ -34,8 +33,6 @@ func parseArgs() *string {
 	return fPath
 }
 
-// readConfig reads the json file from the -config command line
-// arg specified
 func readConfig(fPath *string) {
 	const maxJSONBytes int = 256
 
@@ -52,9 +49,6 @@ func readConfig(fPath *string) {
 	file.Close()
 }
 
-// todo: split things out into individual packages
-// i.e. move discord specific stuff into it's own file
-// move handlers into specific packages too
 func main() {
 	ayame := discordinit.SetupBot(ayameSecrets["token"].(string))
 	logger.Info("konnakiri!")
