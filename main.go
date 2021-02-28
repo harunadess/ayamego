@@ -55,7 +55,7 @@ func main() {
 
 	messaging.SendMessage(ayame, ayameSecrets["generalID"].(string), "yo dayo!!")
 
-	err := discordactions.SetActivity(ayame, "playing", "Apex, probably..")
+	err := discordactions.SetActivity(ayame, "playing Apex, probably..")
 	errors.StandardErrorHandler("SetActvitiy: ", err)
 
 	// wait here for ctrl+c or other signal end term

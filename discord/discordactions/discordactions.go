@@ -5,39 +5,59 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	logger "github.com/jordanjohnston/ayamego/util/logger"
 )
 
+type activity struct {
+	idle         int
+	activityType string
+	msg          string
+}
+
+var activityTypes = []string{
+	"idle",
+	"playing",
+	"listening",
+	"streaming",
+}
+
+const (
+	idleActivity = iota
+	playingActivity
+	listeningActivity
+	streamingActivity
+)
+
+const streamingURL = "https://twitch.tv/harunadess"
+
 // SetActivity sets the activity of the bot
-func SetActivity(session *discordgo.Session, activityType string, activityMsg string) error {
-	idle := 0
+func SetActivity(session *discordgo.Session, message string) error {
+
 	var err error
 
-	lcActivityType := strings.ToLower(activityType)
+	updatedActivity := activity{}
 
-	switch lcActivityType {
-	case "idle":
-		idle = 1
-		err = session.UpdateGameStatus(idle, activityMsg)
-	case "playing":
-		err = session.UpdateGameStatus(idle, activityMsg)
-	case "listening":
-		err = session.UpdateListeningStatus(activityMsg)
-	default:
-		err = errors.New("Unrecognised activity type: " + activityType)
+	for _, v := range activityTypes {
+		if withoutPrefix := strings.TrimPrefix(message, v); withoutPrefix != message {
+			updatedActivity.activityType = v
+			if v == activityTypes[0] {
+				updatedActivity.idle = 999
+			}
+			updatedActivity.msg = strings.Trim(withoutPrefix, " ")
+		}
 	}
 
-	standardErrorHandler("SetActivity: ", err)
-
-	if err == nil {
-		logger.Info("Set activity to: ", activityMsg)
+	switch updatedActivity.activityType {
+	case activityTypes[idleActivity]:
+		fallthrough
+	case activityTypes[playingActivity]:
+		err = session.UpdateGameStatus(updatedActivity.idle, updatedActivity.msg)
+	case activityTypes[listeningActivity]:
+		err = session.UpdateListeningStatus(updatedActivity.msg)
+	case activityTypes[streamingActivity]:
+		err = session.UpdateStreamingStatus(updatedActivity.idle, updatedActivity.msg, streamingURL)
+	default:
+		err = errors.New("unrecognised activity type given:" + updatedActivity.activityType)
 	}
 
 	return err
-}
-
-func standardErrorHandler(msg string, err error) {
-	if err != nil {
-		logger.Error(msg, err)
-	}
 }
