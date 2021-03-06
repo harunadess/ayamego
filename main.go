@@ -15,7 +15,10 @@ import (
 	logger "github.com/jordanjohnston/ayamego/util/logger"
 )
 
-var ayameSecrets map[string]interface{}
+var ayameSecrets struct {
+	Token        string `json:"token"`
+	DevChannelID string `json:"devChannelID"`
+}
 
 func init() {
 	fPath := parseArgs()
@@ -37,6 +40,7 @@ func readConfig(fPath *string) {
 	const maxJSONBytes int = 256
 
 	file, err := os.Open(*fPath)
+	defer file.Close()
 	errors.FatalErrorHandler("readConfig: ", err)
 
 	data := make([]byte, maxJSONBytes)
@@ -45,15 +49,13 @@ func readConfig(fPath *string) {
 
 	err = json.Unmarshal(data[:count], &ayameSecrets)
 	errors.FatalErrorHandler("readConfig: ", err)
-
-	file.Close()
 }
 
 func main() {
-	ayame := discordinit.SetupBot(ayameSecrets["token"].(string))
+	ayame := discordinit.SetupBot(ayameSecrets.Token)
 	logger.Info("konnakiri!")
 
-	messaging.SendMessage(ayame, ayameSecrets["generalID"].(string), "yo dayo!!")
+	messaging.SendMessage(ayame, ayameSecrets.DevChannelID, "yo dayo!!")
 
 	err := discordactions.SetActivity(ayame, "playing Apex, probably..")
 	errors.StandardErrorHandler("SetActvitiy: ", err)
