@@ -1,5 +1,5 @@
 # files
-run_ayame.sh
-ayame.sh
+*.sh
 test.go
 ayamego
+ayame
