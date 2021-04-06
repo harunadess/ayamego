@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -19,6 +20,10 @@ const https string = "https://"
 const domain string = "danbooru.donmai.us/"
 const loginPath string = "profile.json"
 const postsPath string = "posts.json?"
+const largeImage string = "large_file_url"
+const source string = "source"
+const pixivCDN string = "i.pximg.net"
+const basePixivURL string = "https://pixiv.net/en/artworks/"
 
 var booruSecrets struct {
 	Login string `json:"login"`
@@ -26,13 +31,11 @@ var booruSecrets struct {
 }
 
 func init() {
-	// fPath := parseArgs()
-	// readConfig(fPath)
+	fPath := parseArgs()
+	readConfig(fPath)
 
-	fPath := "/home/pi/Documents/projects/golang/src/github.com/jordanjohnston/danbooru.json"
-	readConfig(&fPath)
-
-	// login()
+	// fPath := "/home/pi/Documents/projects/golang/src/github.com/jordanjohnston/danbooru.json"
+	// readConfig(&fPath)
 }
 
 func parseArgs() *string {
@@ -45,24 +48,6 @@ func parseArgs() *string {
 
 	return fPath
 }
-
-/* this is basically not required, as we are using basic auth in all requests */
-/* func login() {
-	loginURL, err := url.Parse(makeURL(loginPath))
-	errors.StandardErrorHandler("login:", err)
-
-	resp, err := http.Get(loginURL.String())
-	errors.StandardErrorHandler("login:", err)
-	defer resp.Body.Close()
-
-	loginResponse := parseBody(resp)
-
-	if _, ok := loginResponse["name"]; ok != true {
-		logger.Error("login: ", "failed to login")
-	} else {
-		logger.Info("Successfully logged in! Booru now active!")
-	}
-} */
 
 func readConfig(fPath *string) {
 	const maxJSONBytes int = 256
@@ -79,6 +64,7 @@ func readConfig(fPath *string) {
 	errors.FatalErrorHandler("readConfig: ", err)
 }
 
+// Search finds images based on the search args
 func Search(searchArgs string) (bool, []string) {
 	args := strings.Split(searchArgs, ",")
 	for i := range args {
@@ -103,15 +89,16 @@ func searchForTags(tags []string) (bool, []string) {
 	defer resp.Body.Close()
 
 	results := parseBody(resp)
-	logger.Info("Got ", len(results), " results")
-
-	first := results[0].(map[string]interface{})
-
 	found := (len(results) > 0)
+	if !found {
+		return found, make([]string, 0)
+	}
 
-	images := make([]string, 2)
-	images[0] = first["large_file_url"].(string)
-	images[1] = first["source"].(string)
+	randomItem := rand.Intn(len(results))
+	logger.Info("Got ", len(results), " results")
+	item := results[randomItem].(map[string]interface{})
+
+	images := pluckImages(item)
 
 	return found, images
 }
@@ -139,4 +126,20 @@ func parseBody(resp *http.Response) []interface{} {
 	json.Unmarshal(body, &parsed)
 
 	return parsed
+}
+
+func pluckImages(item map[string]interface{}) []string {
+	images := make([]string, 2)
+
+	images[0] = item[largeImage].(string)
+	images[1] = item[source].(string)
+
+	if strings.Contains(source, pixivCDN) {
+		urlParts := strings.Split(source, "/")
+		imageFile := urlParts[len(urlParts)-1]
+		imageID := strings.Split(imageFile, "_")[0]
+		images[1] = basePixivURL + imageID
+	}
+
+	return images
 }
