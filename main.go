@@ -2,8 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,6 +9,7 @@ import (
 	discordactions "github.com/jordanjohnston/ayamego/discord/discordactions"
 	discordinit "github.com/jordanjohnston/ayamego/discord/discordinit"
 	"github.com/jordanjohnston/ayamego/messaging"
+	envflags "github.com/jordanjohnston/ayamego/util/envflags"
 	errors "github.com/jordanjohnston/ayamego/util/errors"
 	logger "github.com/jordanjohnston/ayamego/util/logger"
 )
@@ -21,20 +20,24 @@ var ayameSecrets struct {
 }
 
 func init() {
-	fPath := parseArgs()
+	fPath := envflags.ConfigPath
 	readConfig(fPath)
 }
 
-func parseArgs() *string {
-	fPath := flag.String("config", "", "path to config .json file")
-	flag.Parse()
+// func parseArgs() *string {
+// 	configFilePath := flag.String("config", "", "path to config .json file")
+// 	booruFilePath := flag.String("booru", "", "path to booru .json file")
+// 	flag.Parse()
 
-	if *fPath == "" {
-		errors.FatalErrorHandler("parseArgs: ", fmt.Errorf("%v", "no -config specified"))
-	}
+// 	if *configFilePath == "" {
+// 		errors.FatalErrorHandler("parseArgs: ", fmt.Errorf("%v", "no -config specified"))
+// 	}
+// 	if *booruFilePath == "" {
+// 		errors.FatalErrorHandler("parseArgs: ", fmt.Errorf("%v", "no -booru specified"))
+// 	}
 
-	return fPath
-}
+// 	return configFilePath
+// }
 
 func readConfig(fPath *string) {
 	const maxJSONBytes int = 256

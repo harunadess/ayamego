@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/jordanjohnston/ayamego/util/envflags"
 	errors "github.com/jordanjohnston/ayamego/util/errors"
 	logger "github.com/jordanjohnston/ayamego/util/logger"
 )
@@ -30,12 +31,21 @@ var booruSecrets struct {
 	Key   string `json:"key"`
 }
 
-func init() {
-	fPath := parseArgs()
-	readConfig(fPath)
+type imageResults struct {
+	ImageURL  string
+	Thumbnail string
+}
 
-	// fPath := "/home/pi/Documents/projects/golang/src/github.com/jordanjohnston/danbooru.json"
-	// readConfig(&fPath)
+// SearchResults contains the search results for the image
+type SearchResults struct {
+	Title  string
+	Images imageResults
+	Tags   string
+}
+
+func init() {
+	fPath := envflags.BooruPath
+	readConfig(fPath)
 }
 
 func parseArgs() *string {
@@ -65,18 +75,18 @@ func readConfig(fPath *string) {
 }
 
 // Search finds images based on the search args
-func Search(searchArgs string) (bool, []string) {
+func Search(searchArgs string) (bool, SearchResults) {
 	args := strings.Split(searchArgs, ",")
 	for i := range args {
 		args[i] = strings.Trim(args[i], " ")
 		args[i] = strings.Join(strings.Split(args[i], " "), "_")
 	}
-	found, images := searchForTags(args)
+	found, searchResults := searchForTags(args)
 
-	return found, images
+	return found, searchResults
 }
 
-func searchForTags(tags []string) (bool, []string) {
+func searchForTags(tags []string) (bool, SearchResults) {
 	searchString := makeURL(postsPath)
 	tagsParams := convertTagsToParams(tags)
 
@@ -91,16 +101,16 @@ func searchForTags(tags []string) (bool, []string) {
 	results := parseBody(resp)
 	found := (len(results) > 0)
 	if !found {
-		return found, make([]string, 0)
+		return found, SearchResults{}
 	}
 
 	randomItem := rand.Intn(len(results))
 	logger.Info("Got ", len(results), " results")
 	item := results[randomItem].(map[string]interface{})
 
-	images := pluckImages(item)
+	searchResults := makeSearchResults(item)
 
-	return found, images
+	return found, searchResults
 }
 
 func makeURL(path string) string {
@@ -117,6 +127,11 @@ func parseBody(resp *http.Response) []interface{} {
 	body, err := io.ReadAll(resp.Body)
 	errors.StandardErrorHandler("parseBody: ", err)
 
+	if len(string(body)) < 3 {
+		logger.Error("booru.parseBody: ", "No data")
+		return make([]interface{}, 0)
+	}
+
 	if string(body)[:15] == "<!doctype html>" {
 		logger.Error("booru.parseBody: ", "API request failed")
 		return make([]interface{}, 0)
@@ -128,18 +143,38 @@ func parseBody(resp *http.Response) []interface{} {
 	return parsed
 }
 
+func makeSearchResults(item map[string]interface{}) SearchResults {
+	images := pluckImages(item)
+	tags := convertTagsStringToReadable(item["tag_string_general"].(string))
+	title := convertTagsStringToReadable(item["tag_string_character"].(string))
+	if len(title) < 2 {
+		title = "Original"
+	}
+	title = fmt.Sprintf("%s by %s", title, convertTagsStringToReadable(item["tag_string_artist"].(string)))
+
+	return SearchResults{
+		Title:  title,
+		Images: imageResults{ImageURL: images[1], Thumbnail: images[0]},
+		Tags:   tags,
+	}
+}
+
 func pluckImages(item map[string]interface{}) []string {
 	images := make([]string, 2)
 
 	images[0] = item[largeImage].(string)
 	images[1] = item[source].(string)
 
-	if strings.Contains(source, pixivCDN) {
-		urlParts := strings.Split(source, "/")
+	if strings.Contains(images[1], pixivCDN) {
+		urlParts := strings.Split(images[1], "/")
 		imageFile := urlParts[len(urlParts)-1]
 		imageID := strings.Split(imageFile, "_")[0]
 		images[1] = basePixivURL + imageID
 	}
 
 	return images
+}
+
+func convertTagsStringToReadable(tags string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(tags, " ", ", "), "_", " ")
 }

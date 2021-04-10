@@ -5,8 +5,10 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/jordanjohnston/ayamego/booru"
 	discord "github.com/jordanjohnston/ayamego/discord/discordactions"
 	errors "github.com/jordanjohnston/ayamego/util/errors"
 	logger "github.com/jordanjohnston/ayamego/util/logger"
@@ -79,9 +81,45 @@ func setActivity(session *discordgo.Session, message string, discordMessage *dis
 	return "There was an error updating status."
 }
 
+// todo: on success this just returns an empty string because it's a command func, but this isn't great
+// not sure how we refactor this out right now
+// maybe instead of returning a string, we create a struct with a type + properties that contain the message to send
+// for now, it just directly uses session to send a message
 func booruSearch(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
-	// results :=
+	found, results := booru.Search(message)
+	logger.Info("Search output", found, results)
+
+	if !found {
+		return "No results found for those search terms!"
+	}
+
+	embed := makeBooruEmbed(results)
+	msg, err := session.ChannelMessageSendEmbed(discordMessage.ChannelID, embed)
+
+	if err != nil {
+		logger.Error("messaging: ", err)
+	}
+	// note: this does not log anything.. need to figure out how to do that from embed message
+	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", msg.Content)
+
 	return ""
+}
+
+func makeBooruEmbed(results booru.SearchResults) *discordgo.MessageEmbed {
+	const msgColor int = 16750848
+
+	msg := discordgo.MessageEmbed{
+		URL:         results.Images.ImageURL,
+		Type:        discordgo.EmbedTypeImage,
+		Title:       results.Title,
+		Description: results.Tags,
+		Timestamp:   time.Now().Format(time.RFC3339),
+		Color:       msgColor,
+		Footer:      &discordgo.MessageEmbedFooter{Text: "Powered by danbooru"},
+		Image:       &discordgo.MessageEmbedImage{URL: results.Images.Thumbnail, Height: 720, Width: 576},
+	}
+
+	return &msg
 }
 
 func generateHelpMessage(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {

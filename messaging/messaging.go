@@ -13,7 +13,13 @@ func SendMessage(session *discordgo.Session, channelID string, message string) {
 }
 
 // todo: sendMessageWithImage
-// todo: sendMessageWithEmbed
+
+// SendEmbedMessage sends an embedded message to the channel provided
+func SendEmbedMessage(session *discordgo.Session, channelID string, embed *discordgo.MessageEmbed) {
+	msg, err := session.ChannelMessageSendEmbed(channelID, embed)
+	handleGenericError(err)
+	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", msg.Content)
+}
 
 func handleGenericError(err error) {
 	if err != nil {

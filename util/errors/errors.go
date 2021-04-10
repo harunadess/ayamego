@@ -18,6 +18,6 @@ func FatalErrorHandler(msg string, err error) {
 // StandardErrorHandler logs an error if present
 func StandardErrorHandler(msg string, err error) {
 	if err != nil {
-		logger.Error("standardCommands: ", err)
+		logger.Error(msg, err)
 	}
 }
