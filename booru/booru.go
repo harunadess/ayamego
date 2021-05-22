@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/jordanjohnston/ayamego/imageresults"
 	"github.com/jordanjohnston/ayamego/util/envflags"
 	errors "github.com/jordanjohnston/ayamego/util/errors"
 	logger "github.com/jordanjohnston/ayamego/util/logger"
@@ -29,18 +30,6 @@ const basePixivURL string = "https://pixiv.net/en/artworks/"
 var booruSecrets struct {
 	Login string `json:"login"`
 	Key   string `json:"key"`
-}
-
-type imageResults struct {
-	ImageURL  string
-	Thumbnail string
-}
-
-// SearchResults contains the search results for the image
-type SearchResults struct {
-	Title  string
-	Images imageResults
-	Tags   string
 }
 
 func init() {
@@ -75,7 +64,7 @@ func readConfig(fPath *string) {
 }
 
 // Search finds images based on the search args
-func Search(searchArgs string) (bool, SearchResults) {
+func Search(searchArgs string) (bool, imageresults.SearchResults) {
 	args := strings.Split(searchArgs, ",")
 	for i := range args {
 		args[i] = strings.Trim(args[i], " ")
@@ -86,7 +75,7 @@ func Search(searchArgs string) (bool, SearchResults) {
 	return found, searchResults
 }
 
-func searchForTags(tags []string) (bool, SearchResults) {
+func searchForTags(tags []string) (bool, imageresults.SearchResults) {
 	searchString := makeURL(postsPath)
 	tagsParams := convertTagsToParams(tags)
 
@@ -101,7 +90,7 @@ func searchForTags(tags []string) (bool, SearchResults) {
 	results := parseBody(resp)
 	found := (len(results) > 0)
 	if !found {
-		return found, SearchResults{}
+		return found, imageresults.SearchResults{}
 	}
 
 	randomItem := rand.Intn(len(results))
@@ -143,7 +132,7 @@ func parseBody(resp *http.Response) []interface{} {
 	return parsed
 }
 
-func makeSearchResults(item map[string]interface{}) SearchResults {
+func makeSearchResults(item map[string]interface{}) imageresults.SearchResults {
 	images := pluckImages(item)
 	tags := convertTagsStringToReadable(item["tag_string_general"].(string))
 	title := convertTagsStringToReadable(item["tag_string_character"].(string))
@@ -152,9 +141,9 @@ func makeSearchResults(item map[string]interface{}) SearchResults {
 	}
 	title = fmt.Sprintf("%s by %s", title, convertTagsStringToReadable(item["tag_string_artist"].(string)))
 
-	return SearchResults{
+	return imageresults.SearchResults{
 		Title:  title,
-		Images: imageResults{ImageURL: images[1], Thumbnail: images[0]},
+		Images: imageresults.ImageResults{ImageURL: images[1], Thumbnail: images[0]},
 		Tags:   tags,
 	}
 }

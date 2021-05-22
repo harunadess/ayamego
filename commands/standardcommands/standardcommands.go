@@ -9,7 +9,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jordanjohnston/ayamego/booru"
+	"github.com/jordanjohnston/ayamego/deviant"
 	discord "github.com/jordanjohnston/ayamego/discord/discordactions"
+	"github.com/jordanjohnston/ayamego/imageresults"
 	errors "github.com/jordanjohnston/ayamego/util/errors"
 	logger "github.com/jordanjohnston/ayamego/util/logger"
 )
@@ -39,6 +41,10 @@ func init() {
 	commandlers["search for"] = commandHandler{
 		description: "search danbooru for an image",
 		exec:        booruSearch,
+	}
+	commandlers["deviant"] = commandHandler{
+		description: "search deviantart for an image",
+		exec:        deviantSearch,
 	}
 	commandlers["help"] = commandHandler{
 		description: "sends this message",
@@ -87,25 +93,25 @@ func setActivity(session *discordgo.Session, message string, discordMessage *dis
 // for now, it just directly uses session to send a message
 func booruSearch(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
 	found, results := booru.Search(message)
-	logger.Info("Search output", found, results)
+	logger.Info("Search output ", found, results)
 
 	if !found {
 		return "No results found for those search terms!"
 	}
 
-	embed := makeBooruEmbed(results)
-	msg, err := session.ChannelMessageSendEmbed(discordMessage.ChannelID, embed)
+	embed := makeImageEmbed(results, "Powered by danbooru")
+	_, err := session.ChannelMessageSendEmbed(discordMessage.ChannelID, embed)
 
 	if err != nil {
 		logger.Error("messaging: ", err)
 	}
 	// note: this does not log anything.. need to figure out how to do that from embed message
-	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", msg.Content)
+	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", results)
 
 	return ""
 }
 
-func makeBooruEmbed(results booru.SearchResults) *discordgo.MessageEmbed {
+func makeImageEmbed(results imageresults.SearchResults, footerText string) *discordgo.MessageEmbed {
 	const msgColor int = 16750848
 
 	msg := discordgo.MessageEmbed{
@@ -115,11 +121,30 @@ func makeBooruEmbed(results booru.SearchResults) *discordgo.MessageEmbed {
 		Description: results.Tags,
 		Timestamp:   time.Now().Format(time.RFC3339),
 		Color:       msgColor,
-		Footer:      &discordgo.MessageEmbedFooter{Text: "Powered by danbooru"},
+		Footer:      &discordgo.MessageEmbedFooter{Text: footerText},
 		Image:       &discordgo.MessageEmbedImage{URL: results.Images.Thumbnail, Height: 720, Width: 576},
 	}
 
 	return &msg
+}
+
+func deviantSearch(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
+	found, results := deviant.Search(message)
+
+	if !found {
+		return "No results found for those search terms"
+	}
+
+	embed := makeImageEmbed(results, "Powered by deviantart")
+	_, err := session.ChannelMessageSendEmbed(discordMessage.ChannelID, embed)
+
+	if err != nil {
+		logger.Error("messaging: ", err)
+	}
+	// note: this does not log anything.. need to figure out how to do that from embed message
+	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", results)
+
+	return ""
 }
 
 func generateHelpMessage(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {

@@ -24,21 +24,6 @@ func init() {
 	readConfig(fPath)
 }
 
-// func parseArgs() *string {
-// 	configFilePath := flag.String("config", "", "path to config .json file")
-// 	booruFilePath := flag.String("booru", "", "path to booru .json file")
-// 	flag.Parse()
-
-// 	if *configFilePath == "" {
-// 		errors.FatalErrorHandler("parseArgs: ", fmt.Errorf("%v", "no -config specified"))
-// 	}
-// 	if *booruFilePath == "" {
-// 		errors.FatalErrorHandler("parseArgs: ", fmt.Errorf("%v", "no -booru specified"))
-// 	}
-
-// 	return configFilePath
-// }
-
 func readConfig(fPath *string) {
 	const maxJSONBytes int = 256
 
