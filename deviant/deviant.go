@@ -23,7 +23,7 @@ const https string = "https://"
 const domain string = "www.deviantart.com/"
 const authPath string = "oauth2/token"
 const apiVersion string = "api/v1/oauth2/"
-const browseTags string = "browse/tags?"
+const browseTags string = "browse/newest?with_session=false&mature_content=true&"
 
 var deviantSecrets struct {
 	ClientID     string `json:"clientID"`
@@ -152,7 +152,7 @@ func makeDeviationURL(searchTerms ...string) string {
 	baseURL = fmt.Sprintf("%s%s", baseURL, browseTags)
 
 	for _, v := range searchTerms {
-		baseURL += fmt.Sprintf("tag=%s&", v)
+		baseURL += fmt.Sprintf("q=%s&", v)
 	}
 	baseURL = baseURL[:len(baseURL)-1]
 	baseURL = fmt.Sprintf("%s&access_token=%s", baseURL, authToken.AccessToken)
@@ -161,13 +161,15 @@ func makeDeviationURL(searchTerms ...string) string {
 }
 
 func getRandomResult(r []interface{}) (bool, imageresults.SearchResults) {
-	fmt.Println("entered getRandomResult")
 	results := make([]map[string]interface{}, len(r))
 	for i, v := range r {
 		results[i] = make(map[string]interface{})
 		results[i] = v.(map[string]interface{})
 	}
 	rand.Seed(time.Now().Unix())
+	if len(results) == 0 {
+		return false, imageresults.SearchResults{}
+	}
 	i := rand.Intn(len(results))
 
 	v := results[i]
