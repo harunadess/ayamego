@@ -87,15 +87,26 @@ func searchForTags(tags []string) (bool, imageresults.SearchResults) {
 	errors.StandardErrorHandler("booru.searchForTags", err)
 	defer resp.Body.Close()
 
+	if resp == nil {
+		errors.StandardErrorHandler("image search resp was nil", nil)
+		return false, imageresults.SearchResults{}
+	}
 	results := parseBody(resp)
 	found := (len(results) > 0)
 	if !found {
 		return found, imageresults.SearchResults{}
 	}
 
-	randomItem := rand.Intn(len(results))
-	logger.Info("Got ", len(results), " results")
-	item := results[randomItem].(map[string]interface{})
+	randomItem := rand.Intn(len(results) - 1)
+	logger.Info("Got ", len(results), " results: ", results)
+	selectedItem := results[randomItem]
+
+	if selectedItem == nil {
+		errors.StandardErrorHandler("random item was nil", nil)
+		return false, imageresults.SearchResults{}
+	}
+
+	item := selectedItem.(map[string]interface{})
 
 	searchResults := makeSearchResults(item)
 
@@ -132,14 +143,15 @@ func parseBody(resp *http.Response) []interface{} {
 	return parsed
 }
 
+// todo: make this safer
 func makeSearchResults(item map[string]interface{}) imageresults.SearchResults {
 	images := pluckImages(item)
-	tags := convertTagsStringToReadable(item["tag_string_general"].(string))
-	title := convertTagsStringToReadable(item["tag_string_character"].(string))
+	tags := convertTagsStringToReadable(item["tag_string_general"])
+	title := convertTagsStringToReadable(item["tag_string_character"])
 	if len(title) < 2 {
 		title = "Original"
 	}
-	title = fmt.Sprintf("%s by %s", title, convertTagsStringToReadable(item["tag_string_artist"].(string)))
+	title = fmt.Sprintf("%s by %s", title, convertTagsStringToReadable(item["tag_string_artist"]))
 
 	return imageresults.SearchResults{
 		Title:  title,
@@ -151,8 +163,12 @@ func makeSearchResults(item map[string]interface{}) imageresults.SearchResults {
 func pluckImages(item map[string]interface{}) []string {
 	images := make([]string, 2)
 
-	images[0] = item[largeImage].(string)
-	images[1] = item[source].(string)
+	if item[largeImage] != nil {
+		images[0] = item[largeImage].(string)
+	}
+	if item[source] != nil {
+		images[1] = item[source].(string)
+	}
 
 	if strings.Contains(images[1], pixivCDN) {
 		urlParts := strings.Split(images[1], "/")
@@ -164,6 +180,11 @@ func pluckImages(item map[string]interface{}) []string {
 	return images
 }
 
-func convertTagsStringToReadable(tags string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(tags, " ", ", "), "_", " ")
+func convertTagsStringToReadable(tags interface{}) string {
+	var stringifiedTags string
+	if tags == nil {
+		return "-- no data available --"
+	}
+	stringifiedTags = tags.(string)
+	return strings.ReplaceAll(strings.ReplaceAll(stringifiedTags, " ", ", "), "_", " ")
 }

@@ -43,7 +43,7 @@ func init() {
 		exec:        booruSearch,
 	}
 	commandlers["deviant"] = commandHandler{
-		description: "search deviantart for an image",
+		description: "( ͡° ͜ʖ ͡°)",
 		exec:        deviantSearch,
 	}
 	commandlers["help"] = commandHandler{
@@ -59,7 +59,7 @@ func init() {
 // TryHandleStandardCommand checks if the message contains Prefix, and if it does
 // tries to find and execute the appropriate command handler
 func TryHandleStandardCommand(session *discordgo.Session, message *discordgo.MessageCreate) (bool, string) {
-	response := ""
+	response := "ayame does not know that command."
 
 	content := strings.TrimPrefix(message.Content, Prefix)
 
@@ -153,7 +153,11 @@ func generateHelpMessage(session *discordgo.Session, message string, discordMess
 	response += "\nPrefix any command with 'ayame,'\n"
 
 	for k, v := range commandlers {
-		response += fmt.Sprintf("\n<%s>: %s\n", k, v.description)
+		if k != "deviant" {
+			response += fmt.Sprintf("\n<%s>: %s\n", k, v.description)
+		} else if discordMessage.Author.ID == "150765618054823936" {
+			response += fmt.Sprintf("\n<%s>: %s\n", k, v.description)
+		}
 	}
 	response += "\n===============================\n```"
 

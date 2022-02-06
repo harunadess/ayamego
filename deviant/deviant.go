@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -24,6 +25,7 @@ const domain string = "www.deviantart.com/"
 const authPath string = "oauth2/token"
 const apiVersion string = "api/v1/oauth2/"
 const browseTags string = "browse/newest?with_session=false&mature_content=true&"
+const writePerm fs.FileMode = 0666
 
 var deviantSecrets struct {
 	ClientID     string `json:"clientID"`
@@ -131,6 +133,7 @@ func parseBodySingle(resp *http.Response) map[string]interface{} {
 }
 
 // Search for values
+// todo: handle literature..
 func Search(searchTerms string) (bool, imageresults.SearchResults) {
 	if time.Since(authToken.expireDate) > time.Hour {
 		Auth()
@@ -140,11 +143,22 @@ func Search(searchTerms string) (bool, imageresults.SearchResults) {
 	result, err := makeGetRequest(makeDeviationURL, tags...)
 	errors.StandardErrorHandler("deviant.Search", err)
 
+	writeToFile(result)
+
 	if value, ok := result["results"]; ok {
 		return getRandomResult(value.([]interface{}))
 	}
 
 	return false, imageresults.SearchResults{}
+}
+
+func writeToFile(result map[string]interface{}) {
+	s, err := json.Marshal(result)
+	if err != nil {
+		errors.StandardErrorHandler("deviant.writeToFile", err)
+	}
+	// dump to file for now - todo: fix this at some point, so literature is handled either appropriately, or we just ignore it
+	os.WriteFile("./result.json", s, writePerm)
 }
 
 func makeDeviationURL(searchTerms ...string) string {
@@ -192,9 +206,27 @@ func getRandomResult(r []interface{}) (bool, imageresults.SearchResults) {
 }
 
 func getValuesFromMap(m map[string]interface{}) imageValues {
-	title := m["title"].(string)
-	categoryPath := m["category_path"].(string)
-	content := m["content"].(map[string]interface{})
+	titleI, ok := m["title"]
+	if !ok {
+		logger.Error("no title in response ", m)
+		return imageValues{}
+	}
+	title := titleI.(string)
+
+	categoryPathI, ok := m["category_path"]
+	if !ok {
+		logger.Error("no category_path in response ", m)
+		return imageValues{}
+	}
+	categoryPath := categoryPathI.(string)
+
+	contentI, ok := m["content"]
+	if !ok {
+		logger.Error("no category_path in response ", m)
+		return imageValues{}
+	}
+	content := contentI.(map[string]interface{})
+
 	tagsSplit := strings.Split(categoryPath, "/")
 	tags := strings.Join(tagsSplit, ", ")
 
