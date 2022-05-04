@@ -13,7 +13,6 @@ import (
 
 	"github.com/jordanjohnston/ayamego/imageresults"
 	"github.com/jordanjohnston/ayamego/util/envflags"
-	errors "github.com/jordanjohnston/ayamego/util/errors"
 	logger "github.com/jordanjohnston/ayamego/util/logger"
 )
 
@@ -42,7 +41,7 @@ func parseArgs() *string {
 	flag.Parse()
 
 	if *fPath == "" {
-		errors.FatalErrorHandler("parseArgs: ", fmt.Errorf("%v", "no -booru specified"))
+		logger.Fatal("parseArgs: ", fmt.Errorf("%v", "no -booru specified"))
 	}
 
 	return fPath
@@ -52,15 +51,21 @@ func readConfig(fPath *string) {
 	const maxJSONBytes int = 256
 
 	file, err := os.Open(*fPath)
+	if err != nil {
+		logger.Fatal("readConfig: ", err)
+	}
 	defer file.Close()
-	errors.FatalErrorHandler("readConfig: ", err)
 
 	data := make([]byte, maxJSONBytes)
 	count, err := file.Read(data)
-	errors.FatalErrorHandler("readConfig: ", err)
+	if err != nil {
+		logger.Fatal("readConfig: ", err)
+	}
 
 	err = json.Unmarshal(data[:count], &booruSecrets)
-	errors.FatalErrorHandler("readConfig: ", err)
+	if err != nil {
+		logger.Fatal("readConfig: ", err)
+	}
 }
 
 // Search finds images based on the search args
@@ -80,17 +85,24 @@ func searchForTags(tags []string) (bool, imageresults.SearchResults) {
 	tagsParams := convertTagsToParams(tags)
 
 	searchURL, err := url.Parse((searchString + tagsParams))
-	errors.StandardErrorHandler("booru.searchForTags", err)
+	if err != nil {
+		logger.Error("booru.searchForTags", err)
+		return false, imageresults.SearchResults{}
+	}
 	logger.Info("searching for: ", tags)
 
 	resp, err := http.Get(searchURL.String())
-	errors.StandardErrorHandler("booru.searchForTags", err)
-	defer resp.Body.Close()
-
-	if resp == nil {
-		errors.StandardErrorHandler("image search resp was nil", nil)
+	if err != nil {
+		logger.Error("booru.searchForTags", err)
 		return false, imageresults.SearchResults{}
 	}
+
+	if resp == nil {
+		logger.Error("image search response was nil", nil)
+		return false, imageresults.SearchResults{}
+	}
+	defer resp.Body.Close()
+
 	results := parseBody(resp)
 	found := (len(results) > 0)
 	if !found {
@@ -102,7 +114,7 @@ func searchForTags(tags []string) (bool, imageresults.SearchResults) {
 	selectedItem := results[randomItem]
 
 	if selectedItem == nil {
-		errors.StandardErrorHandler("random item was nil", nil)
+		logger.Error("random item from response was nil", nil)
 		return false, imageresults.SearchResults{}
 	}
 
@@ -125,7 +137,9 @@ func convertTagsToParams(tags []string) string {
 
 func parseBody(resp *http.Response) []interface{} {
 	body, err := io.ReadAll(resp.Body)
-	errors.StandardErrorHandler("parseBody: ", err)
+	if err != nil {
+		logger.Error("parseBody: ", err)
+	}
 
 	if len(string(body)) < 3 {
 		logger.Error("booru.parseBody: ", "No data")

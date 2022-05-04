@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -10,6 +11,7 @@ var tags = map[string]string{
 	"error":   "ERR ",
 	"message": "MSG ",
 	"image":   "IMG ",
+	"fatal":   "FATL",
 }
 
 // Info (a ...interface): logs with INFO tag
@@ -30,6 +32,12 @@ func Message(a ...interface{}) {
 // Image (a ...interface): logs with IMG tag
 func Image(a ...interface{}) {
 	log(tags["image"], a...)
+}
+
+// Fatal (a ...interface): logs the error with the FATL tag, before immediately exiting the program with error code 1
+func Fatal(a ...interface{}) {
+	log(tags["fatal"], a...)
+	os.Exit(1)
 }
 
 func log(tag string, a ...interface{}) {

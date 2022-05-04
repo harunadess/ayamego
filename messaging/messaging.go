@@ -8,7 +8,10 @@ import (
 // SendMessage sends a message to the channel provided
 func SendMessage(session *discordgo.Session, channelID string, message string) {
 	msg, err := session.ChannelMessageSend(channelID, message)
-	handleGenericError(err)
+	if err != nil {
+		logger.Error("SendMessage:", err)
+		return
+	}
 	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", msg.Content)
 }
 
@@ -17,12 +20,9 @@ func SendMessage(session *discordgo.Session, channelID string, message string) {
 // SendEmbedMessage sends an embedded message to the channel provided
 func SendEmbedMessage(session *discordgo.Session, channelID string, embed *discordgo.MessageEmbed) {
 	msg, err := session.ChannelMessageSendEmbed(channelID, embed)
-	handleGenericError(err)
-	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", msg.Content)
-}
-
-func handleGenericError(err error) {
 	if err != nil {
-		logger.Error("messaging: ", err)
+		logger.Error("SendEmbedMessage", err)
+		return
 	}
+	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", msg.Content)
 }

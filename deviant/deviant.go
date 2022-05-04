@@ -15,7 +15,6 @@ import (
 
 	"github.com/jordanjohnston/ayamego/imageresults"
 	"github.com/jordanjohnston/ayamego/util/envflags"
-	errors "github.com/jordanjohnston/ayamego/util/errors"
 	logger "github.com/jordanjohnston/ayamego/util/logger"
 )
 
@@ -60,7 +59,7 @@ func parseArgs() *string {
 	flag.Parse()
 
 	if *fPath == "" {
-		errors.FatalErrorHandler("parseArgs: ", fmt.Errorf("%v", "no -deviant specified"))
+		logger.Fatal("parseArgs: ", fmt.Errorf("%v", "no -deviant specified"))
 	}
 
 	return fPath
@@ -70,21 +69,30 @@ func readConfig(fPath *string) {
 	const maxJSONBytes int = 256
 
 	file, err := os.Open(*fPath)
+	if err != nil {
+		logger.Fatal("readConfig: ", err)
+	}
 	defer file.Close()
-	errors.FatalErrorHandler("readConfig: ", err)
 
 	data := make([]byte, maxJSONBytes)
 	count, err := file.Read(data)
-	errors.FatalErrorHandler("readConfig: ", err)
+	if err != nil {
+		logger.Fatal("readConfig: ", err)
+	}
 
 	err = json.Unmarshal(data[:count], &deviantSecrets)
-	errors.FatalErrorHandler("readConfig: ", err)
+	if err != nil {
+		logger.Fatal("readConfig: ", err)
+	}
 }
 
 // Auth authenticates with oauth2
 func Auth() {
 	result, err := makeGetRequest(buildAuthURL)
-	errors.StandardErrorHandler("deviant.auth", err)
+	if err != nil {
+		logger.Error("deviant.auth", err)
+		return
+	}
 
 	if _, ok := result["access_token"]; ok {
 		authToken.ExpiresIn = result["expires_in"].(float64)
@@ -100,10 +108,16 @@ func Auth() {
 
 func makeGetRequest(makeURL urlBuilder, args ...string) (map[string]interface{}, error) {
 	requestURL, err := url.Parse(makeURL(args...))
-	errors.StandardErrorHandler(requestURL.String(), err)
+	if err != nil {
+		logger.Error(requestURL.String(), err)
+		return make(map[string]interface{}), err
+	}
 
 	resp, err := http.Get(requestURL.String())
-	errors.StandardErrorHandler(makeURL(args...), err)
+	if err != nil {
+		logger.Error(makeURL(args...), err)
+		return make(map[string]interface{}), err
+	}
 	defer resp.Body.Close()
 
 	return parseBodySingle(resp), err
@@ -118,15 +132,23 @@ func buildAuthURL(args ...string) string {
 
 func parseBodySingle(resp *http.Response) map[string]interface{} {
 	body, err := io.ReadAll(resp.Body)
-	errors.StandardErrorHandler("parseBody: ", err)
+	if err != nil {
+		logger.Error("parseBody: ", err)
+		return make(map[string]interface{})
+	}
 
 	var parsed interface{}
-	json.Unmarshal(body, &parsed)
+	err = json.Unmarshal(body, &parsed)
+	if err != nil {
+		logger.Error("failed to unmarshal json", err)
+		return make(map[string]interface{})
+	}
 
 	parsedBody := parsed.(map[string]interface{})
 
 	if v, ok := parsedBody["error"]; ok {
-		errors.StandardErrorHandler("got error", fmt.Errorf("%w", v))
+		logger.Error("body had error response", fmt.Errorf("%w", v))
+		return make(map[string]interface{})
 	}
 
 	return parsedBody
@@ -141,7 +163,10 @@ func Search(searchTerms string) (bool, imageresults.SearchResults) {
 	tags := strings.Split(searchTerms, ", ")
 
 	result, err := makeGetRequest(makeDeviationURL, tags...)
-	errors.StandardErrorHandler("deviant.Search", err)
+	if err != nil {
+		logger.Error("deviant.Search", err)
+		return false, imageresults.SearchResults{}
+	}
 
 	writeToFile(result)
 
@@ -149,16 +174,21 @@ func Search(searchTerms string) (bool, imageresults.SearchResults) {
 		return getRandomResult(value.([]interface{}))
 	}
 
+	logger.Error("results['results'] did not exist")
 	return false, imageresults.SearchResults{}
 }
 
 func writeToFile(result map[string]interface{}) {
 	s, err := json.Marshal(result)
 	if err != nil {
-		errors.StandardErrorHandler("deviant.writeToFile", err)
+		logger.Error("deviant.writeToFile", err)
+		return
 	}
 	// dump to file for now - todo: fix this at some point, so literature is handled either appropriately, or we just ignore it
-	os.WriteFile("./result.json", s, writePerm)
+	err = os.WriteFile("./result.json", s, writePerm)
+	if err != nil {
+		logger.Error("failed to dump json to file", err)
+	}
 }
 
 func makeDeviationURL(searchTerms ...string) string {

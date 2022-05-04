@@ -12,7 +12,6 @@ import (
 	"github.com/jordanjohnston/ayamego/deviant"
 	discord "github.com/jordanjohnston/ayamego/discord/discordactions"
 	"github.com/jordanjohnston/ayamego/imageresults"
-	errors "github.com/jordanjohnston/ayamego/util/errors"
 	logger "github.com/jordanjohnston/ayamego/util/logger"
 )
 
@@ -54,6 +53,10 @@ func init() {
 		description: "rolls dice up to the number specified",
 		exec:        diceRoll,
 	}
+	commandlers["add reminder"] = commandHandler{
+		description: "sets a reminder for the specified time. Format: <reminder> -> HH:mm",
+		exec:        addReminder,
+	}
 }
 
 // TryHandleStandardCommand checks if the message contains Prefix, and if it does
@@ -83,7 +86,7 @@ func setActivity(session *discordgo.Session, message string, discordMessage *dis
 		return "Successfully updated status!"
 	}
 
-	logger.Error(err)
+	logger.Error("setActivity", err)
 	return "There was an error updating status."
 }
 
@@ -103,7 +106,8 @@ func booruSearch(session *discordgo.Session, message string, discordMessage *dis
 	_, err := session.ChannelMessageSendEmbed(discordMessage.ChannelID, embed)
 
 	if err != nil {
-		logger.Error("messaging: ", err)
+		logger.Error("booruSearch", err)
+		return "Command failed dazo, please check the logs"
 	}
 	// note: this does not log anything.. need to figure out how to do that from embed message
 	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", results)
@@ -139,7 +143,8 @@ func deviantSearch(session *discordgo.Session, message string, discordMessage *d
 	_, err := session.ChannelMessageSendEmbed(discordMessage.ChannelID, embed)
 
 	if err != nil {
-		logger.Error("messaging: ", err)
+		logger.Error("deviantSearch", err)
+		return "Command failed dazo, please check the logs"
 	}
 	// note: this does not log anything.. need to figure out how to do that from embed message
 	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", results)
@@ -166,9 +171,44 @@ func generateHelpMessage(session *discordgo.Session, message string, discordMess
 
 func diceRoll(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
 	diceSides, err := strconv.Atoi(message)
-	errors.StandardErrorHandler("diceRoll", err)
+	if err != nil {
+		logger.Error("diceRoll", err)
+		return "Command failed dazo, please check the command format and try again"
+	}
 
 	response := fmt.Sprintf("You rolled a %d!", rand.Intn(diceSides))
 
+	return response
+}
+
+func addReminder(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
+	messageParts := make([]string, 0)
+
+	for _, s := range strings.Split(message, "->") {
+		messageParts = append(messageParts, strings.TrimSpace(s))
+	}
+
+	response := "Command failed dazo, please check the command format and try again"
+	if len(messageParts) < 2 || (len(messageParts[0]) < 1 || len(messageParts[1]) < 1) {
+		return response
+	}
+
+	timeParts := strings.Split(messageParts[1], ":")
+	hour, err := strconv.Atoi(strings.TrimSpace(timeParts[0]))
+	if err != nil {
+		logger.Error("hour", err)
+		return response
+	}
+
+	minute, err := strconv.Atoi(strings.TrimSpace(timeParts[1]))
+	if err != nil {
+		logger.Error("minute", err)
+		return response
+	}
+
+	currentTime := time.Now()
+	duration := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), hour, minute, 0, 0, time.Local)
+
+	response = fmt.Sprintf("Yo will remind you to %s at %d:%d!", messageParts[0], duration.Hour(), duration.Minute())
 	return response
 }

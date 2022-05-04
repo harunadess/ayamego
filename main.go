@@ -10,7 +10,6 @@ import (
 	discordinit "github.com/jordanjohnston/ayamego/discord/discordinit"
 	"github.com/jordanjohnston/ayamego/messaging"
 	envflags "github.com/jordanjohnston/ayamego/util/envflags"
-	errors "github.com/jordanjohnston/ayamego/util/errors"
 	logger "github.com/jordanjohnston/ayamego/util/logger"
 )
 
@@ -28,15 +27,21 @@ func readConfig(fPath *string) {
 	const maxJSONBytes int = 256
 
 	file, err := os.Open(*fPath)
+	if err != nil {
+		logger.Fatal("readConfig: ", err)
+	}
 	defer file.Close()
-	errors.FatalErrorHandler("readConfig: ", err)
 
 	data := make([]byte, maxJSONBytes)
 	count, err := file.Read(data)
-	errors.FatalErrorHandler("readConfig: ", err)
+	if err != nil {
+		logger.Fatal("readConfig: ", err)
+	}
 
 	err = json.Unmarshal(data[:count], &ayameSecrets)
-	errors.FatalErrorHandler("readConfig: ", err)
+	if err != nil {
+		logger.Fatal("readConfig: ", err)
+	}
 }
 
 func main() {
@@ -46,7 +51,9 @@ func main() {
 	messaging.SendMessage(ayame, ayameSecrets.DevChannelID, "yo dayo!!")
 
 	err := discordactions.SetActivity(ayame, "playing Apex, probably..")
-	errors.StandardErrorHandler("SetActvitiy: ", err)
+	if err != nil {
+		logger.Error("SetActvitiy: ", err)
+	}
 
 	// wait here for ctrl+c or other signal end term
 	sc := make(chan os.Signal, 1)
