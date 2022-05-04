@@ -57,7 +57,7 @@ func main() {
 
 	// wait here for ctrl+c or other signal end term
 	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
 
 	// cleanly close the discord session
