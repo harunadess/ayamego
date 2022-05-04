@@ -61,3 +61,8 @@ func SetActivity(session *discordgo.Session, message string) error {
 
 	return err
 }
+
+func Disconnect(session *discordgo.Session) error {
+	session.Client.CloseIdleConnections()
+	return session.Close()
+}

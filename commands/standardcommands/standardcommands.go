@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -12,11 +13,13 @@ import (
 	"github.com/jordanjohnston/ayamego/deviant"
 	discord "github.com/jordanjohnston/ayamego/discord/discordactions"
 	"github.com/jordanjohnston/ayamego/imageresults"
+	"github.com/jordanjohnston/ayamego/reminders"
 	logger "github.com/jordanjohnston/ayamego/util/logger"
 )
 
 // Prefix for standard commands
 const Prefix string = "ayame, "
+const HarunaUserId string = "150765618054823936"
 
 type commandFunction func(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string
 
@@ -56,6 +59,10 @@ func init() {
 	commandlers["add reminder"] = commandHandler{
 		description: "sets a reminder for the specified time. Format: <reminder> -> HH:mm",
 		exec:        addReminder,
+	}
+	commandlers["sleep"] = commandHandler{
+		description: "bot go sleep",
+		exec:        goSleep,
 	}
 }
 
@@ -160,7 +167,7 @@ func generateHelpMessage(session *discordgo.Session, message string, discordMess
 	for k, v := range commandlers {
 		if k != "deviant" {
 			response += fmt.Sprintf("\n<%s>: %s\n", k, v.description)
-		} else if discordMessage.Author.ID == "150765618054823936" {
+		} else if discordMessage.Author.ID == HarunaUserId {
 			response += fmt.Sprintf("\n<%s>: %s\n", k, v.description)
 		}
 	}
@@ -209,6 +216,27 @@ func addReminder(session *discordgo.Session, message string, discordMessage *dis
 	currentTime := time.Now()
 	duration := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), hour, minute, 0, 0, time.Local)
 
-	response = fmt.Sprintf("Yo will remind you to %s at %d:%d!", messageParts[0], duration.Hour(), duration.Minute())
+	response = fmt.Sprintf("Yo will remind you to '%s' at %02d:%02d!", messageParts[0], duration.Hour(), duration.Minute())
+	reminders.AddReminder(session, messageParts[0], discordMessage.Author.ID, time.Duration(duration.Unix()))
+
 	return response
+}
+
+func goSleep(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
+	response := "You do not have permission to do that"
+	if discordMessage.Author.ID == HarunaUserId {
+		response = "Otsunakiri"
+		defer doDisconnect(session)
+	}
+
+	return response
+}
+
+func doDisconnect(session *discordgo.Session) {
+	err := discord.Disconnect(session)
+	if err != nil {
+		logger.Fatal("error during disconnection", err)
+	}
+	logger.Info("exiting normally")
+	os.Exit(0)
 }
