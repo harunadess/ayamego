@@ -203,7 +203,7 @@ func addReminder(session *discordgo.Session, message string, discordMessage *dis
 	reminderText := messageParts[0]
 	timeStr := messageParts[1]
 
-	// note: this time format example **must** be 2nd Jan 2006 @ 15:04
+	// note: this time format example must be 2nd Jan 2006 @ 15:04
 	formatExample := "02/01/2006 15:04"
 	reminderTime := time.Now()
 
