@@ -210,7 +210,11 @@ func addReminder(session *discordgo.Session, message string, discordMessage *dis
 
 	dateText := strings.Split(timeStr, " ")
 	if strings.TrimSpace(dateText[0]) == "today" {
-		parsedTime, err := time.ParseInLocation(timeFormatExample, strings.TrimSpace(timeStr), time.Local)
+		if len(dateText) < 2 {
+			return response
+		}
+
+		parsedTime, err := time.ParseInLocation(timeFormatExample, strings.TrimSpace(dateText[1]), time.Local)
 		if err != nil {
 			logger.Error("error parsing time into format: ", err)
 			return response
@@ -225,7 +229,7 @@ func addReminder(session *discordgo.Session, message string, discordMessage *dis
 		reminderTime = parsedTime
 	}
 
-	response = fmt.Sprintf("Yo will remind you to '%s' at %v!", reminderText, reminderTime.Format(dateFormatExample))
+	response = fmt.Sprintf("Yo will remind you '%s' at %v!", reminderText, reminderTime.Format(dateFormatExample))
 	reminders.AddReminder(session, messageParts[0], discordMessage.Author.ID, time.Duration(reminderTime.Unix()))
 
 	return response
