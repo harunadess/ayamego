@@ -57,11 +57,11 @@ func init() {
 		exec:        diceRoll,
 	}
 	commandlers["add reminder"] = commandHandler{
-		description: "sets a reminder for the specified time. Format: <reminder> -> HH:mm",
+		description: "sets a reminder for the specified time. Format: <reminder> @ DD/MM/YYYY HH:mm",
 		exec:        addReminder,
 	}
 	commandlers["sleep"] = commandHandler{
-		description: "bot go sleep",
+		description: "asks bot go sleep",
 		exec:        goSleep,
 	}
 }
@@ -189,10 +189,10 @@ func diceRoll(session *discordgo.Session, message string, discordMessage *discor
 }
 
 func addReminder(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
-	messageParts := make([]string, 0)
+	messageParts := make([]string, 2)
 
-	for _, s := range strings.Split(message, "->") {
-		messageParts = append(messageParts, strings.TrimSpace(s))
+	for i, s := range strings.Split(message, "@") {
+		messageParts[i] = strings.TrimSpace(s)
 	}
 
 	response := "Command failed dazo, please check the command format and try again"
@@ -200,24 +200,25 @@ func addReminder(session *discordgo.Session, message string, discordMessage *dis
 		return response
 	}
 
-	timeParts := strings.Split(messageParts[1], ":")
-	hour, err := strconv.Atoi(strings.TrimSpace(timeParts[0]))
-	if err != nil {
-		logger.Error("hour", err)
-		return response
+	reminderText := messageParts[0]
+	timeStr := messageParts[1]
+
+	// note: this time format example **must** be 2nd Jan 2006 @ 15:04
+	formatExample := "02/01/2006 15:04"
+	reminderTime := time.Now()
+
+	dateText := strings.Split(timeStr, " ")
+	if strings.TrimSpace(dateText[0]) != "today" {
+		parsedTime, err := time.ParseInLocation(formatExample, strings.TrimSpace(timeStr), time.Local)
+		if err != nil {
+			logger.Error("error parsing time into format: ", err)
+			return response
+		}
+		reminderTime = parsedTime
 	}
 
-	minute, err := strconv.Atoi(strings.TrimSpace(timeParts[1]))
-	if err != nil {
-		logger.Error("minute", err)
-		return response
-	}
-
-	currentTime := time.Now()
-	duration := time.Date(currentTime.Year(), currentTime.Month(), currentTime.Day(), hour, minute, 0, 0, time.Local)
-
-	response = fmt.Sprintf("Yo will remind you to '%s' at %02d:%02d!", messageParts[0], duration.Hour(), duration.Minute())
-	reminders.AddReminder(session, messageParts[0], discordMessage.Author.ID, time.Duration(duration.Unix()))
+	response = fmt.Sprintf("Yo will remind you to '%s' at %v!", reminderText, reminderTime.Format(formatExample))
+	reminders.AddReminder(session, messageParts[0], discordMessage.Author.ID, time.Duration(reminderTime.Unix()))
 
 	return response
 }
