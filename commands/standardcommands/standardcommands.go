@@ -204,12 +204,20 @@ func addReminder(session *discordgo.Session, message string, discordMessage *dis
 	timeStr := messageParts[1]
 
 	// note: this time format example must be 2nd Jan 2006 @ 15:04
-	formatExample := "02/01/2006 15:04"
+	dateFormatExample := "02/01/2006 15:04"
+	timeFormatExample := "15:04"
 	reminderTime := time.Now()
 
 	dateText := strings.Split(timeStr, " ")
-	if strings.TrimSpace(dateText[0]) != "today" {
-		parsedTime, err := time.ParseInLocation(formatExample, strings.TrimSpace(timeStr), time.Local)
+	if strings.TrimSpace(dateText[0]) == "today" {
+		parsedTime, err := time.ParseInLocation(timeFormatExample, strings.TrimSpace(timeStr), time.Local)
+		if err != nil {
+			logger.Error("error parsing time into format: ", err)
+			return response
+		}
+		reminderTime = setClockFromSecondTime(reminderTime, parsedTime)
+	} else {
+		parsedTime, err := time.ParseInLocation(dateFormatExample, strings.TrimSpace(timeStr), time.Local)
 		if err != nil {
 			logger.Error("error parsing time into format: ", err)
 			return response
@@ -217,10 +225,15 @@ func addReminder(session *discordgo.Session, message string, discordMessage *dis
 		reminderTime = parsedTime
 	}
 
-	response = fmt.Sprintf("Yo will remind you to '%s' at %v!", reminderText, reminderTime.Format(formatExample))
+	response = fmt.Sprintf("Yo will remind you to '%s' at %v!", reminderText, reminderTime.Format(dateFormatExample))
 	reminders.AddReminder(session, messageParts[0], discordMessage.Author.ID, time.Duration(reminderTime.Unix()))
 
 	return response
+}
+
+func setClockFromSecondTime(t1 time.Time, t2 time.Time) time.Time {
+	return time.Date(t1.Year(), t1.Month(), t1.Day(),
+		t2.Hour(), t2.Minute(), 0, 0, time.Local)
 }
 
 func goSleep(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
