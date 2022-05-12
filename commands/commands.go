@@ -28,6 +28,10 @@ func OnMessageCreate(session *discordgo.Session, message *discordgo.MessageCreat
 		hasResponse, response = false, "music command"
 	} else {
 		hasResponse, response = substringcommands.TryHandleSubstringCommand(message)
+		if hasResponse {
+			messaging.Reply(session, channelID, message.Reference(), response)
+			return
+		}
 	}
 
 	if hasResponse {

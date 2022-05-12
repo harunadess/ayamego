@@ -13,7 +13,8 @@ var wholeMessages = map[string]string{
 }
 
 var substrings = map[string]string{
-	"yo": "dayo!",
+	"yo":       "dayo!",
+	"where is": "docchi docchi...?",
 }
 
 // TryHandleSubstringCommand tries to parse a substring command
@@ -21,12 +22,21 @@ var substrings = map[string]string{
 func TryHandleSubstringCommand(message *discordgo.MessageCreate) (bool, string) {
 	content := message.Content
 
-	response := findSubstringFromMap(content, wholeMessages)
+	response := messageIsMapEntry(content, wholeMessages)
 	if response == "" {
 		response = findSubstringFromMap(content, substrings)
 	}
 
 	return (response != ""), response
+}
+
+func messageIsMapEntry(str string, m map[string]string) string {
+	for k, v := range m {
+		if str == k {
+			return v
+		}
+	}
+	return ""
 }
 
 func findSubstringFromMap(str string, m map[string]string) string {

@@ -21,6 +21,10 @@ import (
 const Prefix string = "ayame, "
 const HarunaUserId string = "150765618054823936"
 
+// note: this time format example must be 2nd Jan 2006 @ 15:04
+const DateFormatExample string = "02/01/2006 15:04"
+const TimeFormatExample string = "15:04"
+
 type commandFunction func(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string
 
 type commandHandler struct {
@@ -35,6 +39,10 @@ func init() {
 	commandlers["hello"] = commandHandler{
 		description: "says hello to the user",
 		exec:        sayHello,
+	}
+	commandlers["avatar"] = commandHandler{
+		description: "returns your avatar image",
+		exec:        avatar,
 	}
 	commandlers["setActivity"] = commandHandler{
 		description: "sets bot activity",
@@ -57,7 +65,7 @@ func init() {
 		exec:        diceRoll,
 	}
 	commandlers["add reminder"] = commandHandler{
-		description: "sets a reminder for the specified time. Format: <reminder> @ DD/MM/YYYY HH:mm",
+		description: "sets a reminder for the specified time. Format: <reminder> @ DD/MM/YYYY HH:mm or <reminder> @ today HH:mm",
 		exec:        addReminder,
 	}
 	commandlers["sleep"] = commandHandler{
@@ -84,6 +92,10 @@ func TryHandleStandardCommand(session *discordgo.Session, message *discordgo.Mes
 
 func sayHello(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
 	return "Hello " + discordMessage.Author.Mention() + "!"
+}
+
+func avatar(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
+	return discordMessage.Author.AvatarURL("256")
 }
 
 func setActivity(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
@@ -203,9 +215,6 @@ func addReminder(session *discordgo.Session, message string, discordMessage *dis
 	reminderText := messageParts[0]
 	timeStr := messageParts[1]
 
-	// note: this time format example must be 2nd Jan 2006 @ 15:04
-	dateFormatExample := "02/01/2006 15:04"
-	timeFormatExample := "15:04"
 	reminderTime := time.Now()
 
 	dateText := strings.Split(timeStr, " ")
@@ -214,14 +223,14 @@ func addReminder(session *discordgo.Session, message string, discordMessage *dis
 			return response
 		}
 
-		parsedTime, err := time.ParseInLocation(timeFormatExample, strings.TrimSpace(dateText[1]), time.Local)
+		parsedTime, err := time.ParseInLocation(TimeFormatExample, strings.TrimSpace(dateText[1]), time.Local)
 		if err != nil {
 			logger.Error("error parsing time into format: ", err)
 			return response
 		}
 		reminderTime = setClockFromSecondTime(reminderTime, parsedTime)
 	} else {
-		parsedTime, err := time.ParseInLocation(dateFormatExample, strings.TrimSpace(timeStr), time.Local)
+		parsedTime, err := time.ParseInLocation(DateFormatExample, strings.TrimSpace(timeStr), time.Local)
 		if err != nil {
 			logger.Error("error parsing time into format: ", err)
 			return response
@@ -229,7 +238,7 @@ func addReminder(session *discordgo.Session, message string, discordMessage *dis
 		reminderTime = parsedTime
 	}
 
-	response = fmt.Sprintf("Yo will remind you '%s' at %v!", reminderText, reminderTime.Format(dateFormatExample))
+	response = fmt.Sprintf("Yo will remind you '%s' at %v!", reminderText, reminderTime.Format(DateFormatExample))
 	reminders.AddReminder(session, messageParts[0], discordMessage.Author.ID, time.Duration(reminderTime.Unix()))
 
 	return response

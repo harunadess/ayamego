@@ -31,8 +31,17 @@ func SendEmbedMessage(session *discordgo.Session, channelID string, embed *disco
 func SendMessageDM(session *discordgo.Session, userID string, message string) {
 	channel, err := session.UserChannelCreate(userID)
 	if err != nil {
-		logger.Error("SendMessageDM, failed to create user DM: ", err)
+		logger.Error("SendMessageDM failed to create user DM: ", err)
 		return
 	}
 	SendMessage(session, channel.ID, message)
+}
+
+func Reply(session *discordgo.Session, channelID string, ref *discordgo.MessageReference, message string) {
+	reply, err := session.ChannelMessageSendReply(channelID, message, ref)
+	if err != nil {
+		logger.Error("Reply failed to send reply: ", err)
+		return
+	}
+	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", reply.Content)
 }
