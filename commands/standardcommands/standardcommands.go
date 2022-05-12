@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -15,15 +16,12 @@ import (
 	"github.com/jordanjohnston/ayamego/imageresults"
 	"github.com/jordanjohnston/ayamego/reminders"
 	logger "github.com/jordanjohnston/ayamego/util/logger"
+	"github.com/jordanjohnston/ayamego/util/timeparser"
 )
 
 // Prefix for standard commands
 const Prefix string = "ayame, "
 const HarunaUserId string = "150765618054823936"
-
-// note: this time format example must be 2nd Jan 2006 @ 15:04
-const DateFormatExample string = "02/01/2006 15:04"
-const TimeFormatExample string = "15:04"
 
 type commandFunction func(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string
 
@@ -36,6 +34,10 @@ type commandHandler struct {
 var commandlers = map[string]commandHandler{}
 
 func init() {
+	commandlers["help"] = commandHandler{
+		description: "sends this message",
+		exec:        generateHelpMessage,
+	}
 	commandlers["hello"] = commandHandler{
 		description: "says hello to the user",
 		exec:        sayHello,
@@ -56,10 +58,6 @@ func init() {
 		description: "( ͡° ͜ʖ ͡°)",
 		exec:        deviantSearch,
 	}
-	commandlers["help"] = commandHandler{
-		description: "sends this message",
-		exec:        generateHelpMessage,
-	}
 	commandlers["dice roll"] = commandHandler{
 		description: "rolls dice up to the number specified",
 		exec:        diceRoll,
@@ -68,6 +66,11 @@ func init() {
 		description: "sets a reminder for the specified time. Format: <reminder> @ DD/MM/YYYY HH:mm or <reminder> @ today HH:mm",
 		exec:        addReminder,
 	}
+	commandlers["timestamp"] = commandHandler{
+		description: "converts the specified date/time into a discord rich timestamp",
+		exec:        createTimestampForDiscord,
+	}
+
 	commandlers["sleep"] = commandHandler{
 		description: "asks bot go sleep",
 		exec:        goSleep,
@@ -213,40 +216,55 @@ func addReminder(session *discordgo.Session, message string, discordMessage *dis
 	}
 
 	reminderText := messageParts[0]
-	timeStr := messageParts[1]
+	dateTimeStr := messageParts[1]
 
-	reminderTime := time.Now()
+	timestampParts := strings.Split(dateTimeStr, " ")
+	reminderTime, err := parseTimeOrTimestamp(timestampParts)
 
-	dateText := strings.Split(timeStr, " ")
-	if strings.TrimSpace(dateText[0]) == "today" {
-		if len(dateText) < 2 {
-			return response
-		}
-
-		parsedTime, err := time.ParseInLocation(TimeFormatExample, strings.TrimSpace(dateText[1]), time.Local)
-		if err != nil {
-			logger.Error("error parsing time into format: ", err)
-			return response
-		}
-		reminderTime = setClockFromSecondTime(reminderTime, parsedTime)
-	} else {
-		parsedTime, err := time.ParseInLocation(DateFormatExample, strings.TrimSpace(timeStr), time.Local)
-		if err != nil {
-			logger.Error("error parsing time into format: ", err)
-			return response
-		}
-		reminderTime = parsedTime
+	if err != nil {
+		logger.Error("error parsing time into format: ", err)
+		return response
 	}
 
-	response = fmt.Sprintf("Yo will remind you '%s' at %v!", reminderText, reminderTime.Format(DateFormatExample))
+	response = fmt.Sprintf("Yo will remind you '%s' at %v!", reminderText, reminderTime.Format(timeparser.DateFormatExample))
 	reminders.AddReminder(session, messageParts[0], discordMessage.Author.ID, time.Duration(reminderTime.Unix()))
 
 	return response
 }
 
-func setClockFromSecondTime(t1 time.Time, t2 time.Time) time.Time {
-	return time.Date(t1.Year(), t1.Month(), t1.Day(),
-		t2.Hour(), t2.Minute(), 0, 0, time.Local)
+func parseTimeOrTimestamp(timeParts []string) (time.Time, error) {
+	if len(timeParts) < 2 {
+		return time.Time{}, errors.New("parseTimeFromCommand - not enough timeParts")
+	}
+
+	dateStr := timeParts[0]
+	timeStr := timeParts[1]
+
+	if strings.TrimSpace(dateStr) == "today" {
+		parsedTime, err := timeparser.ParseTime(timeStr)
+		if err != nil {
+			logger.Error("error parsing time into format: ", err)
+			return time.Time{}, err
+		}
+		return timeparser.SetTimeOfLeftToTimeOfRight(time.Now(), parsedTime), nil
+	}
+
+	parsedTime, err := timeparser.ParseDateTime(strings.Join(timeParts, " "))
+	if err != nil {
+		logger.Error("error parsing timestamp into format: ", err)
+		return time.Time{}, nil
+	}
+	return parsedTime, nil
+}
+
+func createTimestampForDiscord(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
+	parts := strings.Split(message, " ")
+	timestamp, err := parseTimeOrTimestamp(parts)
+	if err != nil {
+		logger.Error("error parsing time into format: ", err)
+		return "Command failed dazo, please check the command format and try again"
+	}
+	return fmt.Sprintf("Here is the timestamp for <t:%v>: `<t:%v>`", timestamp.Unix(), timestamp.Unix())
 }
 
 func goSleep(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
