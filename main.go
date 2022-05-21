@@ -48,7 +48,7 @@ func main() {
 	ayame := discordinit.SetupBot(ayameSecrets.Token)
 	logger.Info("konnakiri!")
 
-	messaging.SendMessage(ayame, ayameSecrets.DevChannelID, "yo dayo!!")
+	messaging.SendMessage(ayame, ayameSecrets.DevChannelID, "Konnakiri!!")
 
 	err := discordactions.SetActivity(ayame, "playing Apex, probably..")
 	if err != nil {

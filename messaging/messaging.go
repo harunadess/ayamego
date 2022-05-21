@@ -15,11 +15,25 @@ func SendMessage(session *discordgo.Session, channelID string, message string) {
 	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", msg.Content)
 }
 
-// todo: sendMessageWithImage
-
 // SendEmbedMessage sends an embedded message to the channel provided
 func SendEmbedMessage(session *discordgo.Session, channelID string, embed *discordgo.MessageEmbed) {
 	msg, err := session.ChannelMessageSendEmbed(channelID, embed)
+	if err != nil {
+		logger.Error("SendEmbedMessage failed to send embed: ", err)
+		return
+	}
+	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", msg.Content)
+}
+
+func SendMessageComplex(session *discordgo.Session, channelID string, msgContent string) {
+	msg, err := session.ChannelMessageSendComplex(channelID, &discordgo.MessageSend{
+		Content:         msgContent,
+		Embed:           nil,
+		TTS:             false,
+		Files:           nil,
+		AllowedMentions: nil,
+		Reference:       nil,
+	})
 	if err != nil {
 		logger.Error("SendEmbedMessage failed to send embed: ", err)
 		return

@@ -19,11 +19,11 @@ func OnMessageCreate(session *discordgo.Session, message *discordgo.MessageCreat
 	}
 
 	channelID := message.ChannelID
-	hasResponse, response := false, ""
+	hasResponse, response, responseType := false, "", standardcommands.Response_Standard
 
 	if strings.HasPrefix(message.Content, standardcommands.Prefix) {
 		// do standard command things
-		hasResponse, response = standardcommands.TryHandleStandardCommand(session, message)
+		hasResponse, response, responseType = standardcommands.TryHandleStandardCommand(session, message)
 	} else if strings.HasPrefix(message.Content, musicCommandPrefix) {
 		hasResponse, response = false, "music command"
 	} else {
@@ -36,6 +36,11 @@ func OnMessageCreate(session *discordgo.Session, message *discordgo.MessageCreat
 
 	if hasResponse {
 		logger.Message(message.Author, ": ", message.Content)
-		messaging.SendMessage(session, channelID, response)
+		switch responseType {
+		case standardcommands.Response_Standard:
+			messaging.SendMessage(session, channelID, response)
+		case standardcommands.Response_Complex:
+			messaging.SendMessageComplex(session, channelID, response)
+		}
 	}
 }

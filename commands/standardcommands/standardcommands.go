@@ -23,12 +23,20 @@ import (
 const Prefix string = "ayame, "
 const HarunaUserId string = "150765618054823936"
 
-type commandFunction func(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string
+const (
+	Response_Complex  string = "COMPLEX"
+	Response_Standard string = "STANDARD"
+)
+
+type commandFunction func(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) (string, string)
 
 type commandHandler struct {
 	description string
 	exec        commandFunction
 }
+
+// todo: make the commandlers just have access to and send the messages directly from here
+// will likely give more control over the response types and how responses are given
 
 // todo: add other commands to bot
 var commandlers = map[string]commandHandler{}
@@ -62,6 +70,10 @@ func init() {
 		description: "rolls dice up to the number specified",
 		exec:        diceRoll,
 	}
+	commandlers["pick one"] = commandHandler{
+		description: "pick one from supplied options. Format: <option1> | <option2> | <option3>",
+		exec:        pickOne,
+	}
 	commandlers["add reminder"] = commandHandler{
 		description: "sets a reminder for the specified time. Format: <reminder> @ DD/MM/YYYY HH:mm or <reminder> @ today HH:mm",
 		exec:        addReminder,
@@ -70,7 +82,6 @@ func init() {
 		description: "converts the specified date/time into a discord rich timestamp",
 		exec:        createTimestampForDiscord,
 	}
-
 	commandlers["sleep"] = commandHandler{
 		description: "asks bot go sleep",
 		exec:        goSleep,
@@ -79,49 +90,50 @@ func init() {
 
 // TryHandleStandardCommand checks if the message contains Prefix, and if it does
 // tries to find and execute the appropriate command handler
-func TryHandleStandardCommand(session *discordgo.Session, message *discordgo.MessageCreate) (bool, string) {
+func TryHandleStandardCommand(session *discordgo.Session, message *discordgo.MessageCreate) (bool, string, string) {
 	response := "ayame does not know that command."
+	responseType := Response_Standard
 
 	content := strings.TrimPrefix(message.Content, Prefix)
 
 	for k, f := range commandlers {
 		if withoutPrefix := strings.TrimPrefix(content, k); withoutPrefix != content {
-			response = f.exec(session, strings.Trim(withoutPrefix, " "), message)
+			response, responseType = f.exec(session, strings.Trim(withoutPrefix, " "), message)
 			break
 		}
 	}
-	return (response != ""), response
+	return (response != ""), response, responseType
 }
 
-func sayHello(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
-	return "Hello " + discordMessage.Author.Mention() + "!"
+func sayHello(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) (string, string) {
+	return "Hello " + discordMessage.Author.Mention() + "!", Response_Standard
 }
 
-func avatar(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
-	return discordMessage.Author.AvatarURL("256")
+func avatar(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) (string, string) {
+	return discordMessage.Author.AvatarURL("256"), Response_Standard
 }
 
-func setActivity(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
+func setActivity(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) (string, string) {
 	err := discord.SetActivity(session, message)
 
 	if err == nil {
-		return "Successfully updated status!"
+		return "Successfully updated status!", Response_Standard
 	}
 
 	logger.Error("setActivity", err)
-	return "There was an error updating status."
+	return "There was an error updating status.", Response_Standard
 }
 
 // todo: on success this just returns an empty string because it's a command func, but this isn't great
 // not sure how we refactor this out right now
 // maybe instead of returning a string, we create a struct with a type + properties that contain the message to send
 // for now, it just directly uses session to send a message
-func booruSearch(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
+func booruSearch(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) (string, string) {
 	found, results := booru.Search(message)
 	logger.Info("Search output ", found, results)
 
 	if !found {
-		return "No results found for those search terms!"
+		return "No results found for those search terms!", Response_Standard
 	}
 
 	embed := makeImageEmbed(results, "Powered by danbooru")
@@ -129,12 +141,12 @@ func booruSearch(session *discordgo.Session, message string, discordMessage *dis
 
 	if err != nil {
 		logger.Error("booruSearch", err)
-		return "Command failed dazo, please check the logs"
+		return "Command failed dazo, please check the logs", Response_Standard
 	}
 	// note: this does not log anything.. need to figure out how to do that from embed message
 	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", results)
 
-	return ""
+	return "", Response_Standard
 }
 
 func makeImageEmbed(results imageresults.SearchResults, footerText string) *discordgo.MessageEmbed {
@@ -154,11 +166,11 @@ func makeImageEmbed(results imageresults.SearchResults, footerText string) *disc
 	return &msg
 }
 
-func deviantSearch(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
+func deviantSearch(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) (string, string) {
 	found, results := deviant.Search(message)
 
 	if !found {
-		return "No results found for those search terms"
+		return "No results found for those search terms", Response_Standard
 	}
 
 	embed := makeImageEmbed(results, "Powered by deviantart")
@@ -166,16 +178,16 @@ func deviantSearch(session *discordgo.Session, message string, discordMessage *d
 
 	if err != nil {
 		logger.Error("deviantSearch", err)
-		return "Command failed dazo, please check the logs"
+		return "Command failed dazo, please check the logs", Response_Standard
 	}
 	// note: this does not log anything.. need to figure out how to do that from embed message
 	logger.Message(session.State.User.Username, "#", session.State.User.Discriminator, ": ", results)
 
-	return ""
+	return "", Response_Standard
 }
 
-func generateHelpMessage(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
-	response := "```css"
+func generateHelpMessage(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) (string, string) {
+	response := "```html"
 	response += "\n======== Help Commands ========"
 	response += "\nPrefix any command with 'ayame,'\n"
 
@@ -188,22 +200,60 @@ func generateHelpMessage(session *discordgo.Session, message string, discordMess
 	}
 	response += "\n===============================\n```"
 
-	return response
+	return response, Response_Complex
 }
 
-func diceRoll(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
+func diceRoll(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) (string, string) {
 	diceSides, err := strconv.Atoi(message)
 	if err != nil {
 		logger.Error("diceRoll", err)
-		return "Command failed dazo, please check the command format and try again"
+		return "Command failed dazo, please check the command format and try again", Response_Standard
 	}
 
 	response := fmt.Sprintf("You rolled a %d!", rand.Intn(diceSides))
 
-	return response
+	return response, Response_Standard
 }
 
-func addReminder(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
+func pickOne(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) (string, string) {
+	options := strings.Split(message, "|")
+
+	if len(options) < 2 {
+		return "Command failed dazo, please check the command format and try again", Response_Standard
+	}
+
+	for i, v := range options {
+		options[i] = strings.TrimSpace(v)
+	}
+
+	for _, v := range options {
+		if len(v) < 1 {
+			return "Command failed dazo, please check the command format and try again", Response_Standard
+		}
+	}
+
+	go createDelayedResponse(options, session, discordMessage)
+
+	return "docchi, docchi...", Response_Standard
+}
+
+func createDelayedResponse(options []string, session *discordgo.Session, discordMessage *discordgo.MessageCreate) {
+	time.Sleep(time.Second * 1)
+	delayedResponse := actuallyPickOne(options, discordMessage.Author.Mention())
+	_, err := session.ChannelMessageSend(discordMessage.ChannelID, delayedResponse)
+	if err != nil {
+		logger.Error("failed to send delayed response", err)
+	}
+}
+
+func actuallyPickOne(options []string, mentionStr string) string {
+	rand.Seed(time.Now().UnixNano())
+	randIdx := rand.Intn(len(options))
+
+	return fmt.Sprintf("%v, Ayame has picked '%v' dayo", mentionStr, options[randIdx])
+}
+
+func addReminder(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) (string, string) {
 	messageParts := make([]string, 2)
 
 	for i, s := range strings.Split(message, "@") {
@@ -212,7 +262,7 @@ func addReminder(session *discordgo.Session, message string, discordMessage *dis
 
 	response := "Command failed dazo, please check the command format and try again"
 	if len(messageParts) < 2 || (len(messageParts[0]) < 1 || len(messageParts[1]) < 1) {
-		return response
+		return response, Response_Standard
 	}
 
 	reminderText := messageParts[0]
@@ -223,13 +273,13 @@ func addReminder(session *discordgo.Session, message string, discordMessage *dis
 
 	if err != nil {
 		logger.Error("error parsing time into format: ", err)
-		return response
+		return response, Response_Standard
 	}
 
 	response = fmt.Sprintf("Yo will remind you '%s' at %v!", reminderText, reminderTime.Format(timeparser.DateFormatExample))
 	reminders.AddReminder(session, messageParts[0], discordMessage.Author.ID, time.Duration(reminderTime.Unix()))
 
-	return response
+	return response, Response_Standard
 }
 
 func parseTimeOrTimestamp(timeParts []string) (time.Time, error) {
@@ -257,24 +307,24 @@ func parseTimeOrTimestamp(timeParts []string) (time.Time, error) {
 	return parsedTime, nil
 }
 
-func createTimestampForDiscord(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
+func createTimestampForDiscord(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) (string, string) {
 	parts := strings.Split(message, " ")
 	timestamp, err := parseTimeOrTimestamp(parts)
 	if err != nil {
 		logger.Error("error parsing time into format: ", err)
-		return "Command failed dazo, please check the command format and try again"
+		return "Command failed dazo, please check the command format and try again", Response_Standard
 	}
-	return fmt.Sprintf("Here is the timestamp for <t:%v>: `<t:%v>`", timestamp.Unix(), timestamp.Unix())
+	return fmt.Sprintf("Here is the timestamp for <t:%v>: `<t:%v>`", timestamp.Unix(), timestamp.Unix()), Response_Standard
 }
 
-func goSleep(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) string {
+func goSleep(session *discordgo.Session, message string, discordMessage *discordgo.MessageCreate) (string, string) {
 	response := "You do not have permission to do that"
 	if discordMessage.Author.ID == HarunaUserId {
-		response = "Otsunakiri"
-		defer doDisconnect(session)
+		response = "Otsunakiri!!"
+		go doDisconnect(session)
 	}
 
-	return response
+	return response, Response_Standard
 }
 
 func doDisconnect(session *discordgo.Session) {
